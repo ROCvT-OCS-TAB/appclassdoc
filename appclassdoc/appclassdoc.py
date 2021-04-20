@@ -1125,7 +1125,10 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
         """
         method_name = ctx.method().genericID().getText()
         _logger.debug(f'>>> #MethodImplementation: {method_name}')
-        if self.include_private or method_name.lower() in self.private_methods:
+        ## RSR01 2021-04-20 BEGIN Bugfix
+        #if self.include_private or method_name.lower() in self.private_methods:
+        if self.include_private or method_name.lower() not in self.private_methods:
+        ## RSR01 2021-04-20 EINDE Bugfix
             descr = self._find_api_comment(ctx.start)
             if descr:
                 method = self.app_class.find_method(method_name)
