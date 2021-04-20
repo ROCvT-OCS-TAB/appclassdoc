@@ -512,6 +512,9 @@ Content styles
 .description pre {
     margin-top:0;
 }
+.block pre {
+	background-color: #eee;
+}
 .deprecatedContent {
     margin:0;
     padding:10px 0;

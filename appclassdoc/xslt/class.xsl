@@ -568,9 +568,16 @@ var activeTableTab = "activeTableTab";</xsl:text></xsl:if>
     </xsl:choose>
   </xsl:template>
 
+  <!-- RSR01 2021-04-19 BEGIN Use markdown instead -->
+  <!-- 
   <xsl:template match="paragraph">
     <p><xsl:value-of select="."/></p>
   </xsl:template>
+  -->
+  <xsl:template match="paragraph">
+    <xsl:value-of select="." disable-output-escaping="yes"/>
+  </xsl:template>
+  <!-- RSR01 2021-04-19 EINDE Use markdown instead -->
 
   <xsl:template match="constructor" mode="summary">
     <!-- ======== CONSTRUCTOR SUMMARY ======== -->

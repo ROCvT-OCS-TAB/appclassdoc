@@ -28,11 +28,21 @@ from peoplecodeparser.PeopleCodeParserVisitor import PeopleCodeParserVisitor
 
 from pkg_resources import resource_filename, resource_stream
 
+## RSR01 2021-04-19 BEGIN Use markdown instead
+import markdown
+## RSR01 2021-04-19 EINDE Use markdown instead
+## RSR01 2021-04-20 BEGIN Save and reuse previous list
+import csv
+## RSR01 2021-04-20 EINDE Save and reuse previous list
+
 
 # GLOBAL VARIABLES
 _verbose = False
 _logger = logging.getLogger('appclassdoc')
 _re_api = re.compile(r'/\*\*+\s*(.+)\s*\*+/', flags=re.DOTALL)
+## RSR01 2021-04-19 BEGIN Use markdown instead
+_re_star = re.compile(r'^\s*\*+')
+## RSR01 2021-04-19 EINDE Use markdown instead
 
 
 # MODEL
@@ -503,8 +513,11 @@ class Description:
             etree.SubElement(node, 'summary').text = etree.CDATA(self.summary)
         if self.full:
             full = etree.SubElement(node, 'full')
-            for para in self.full:
-                etree.SubElement(full, 'paragraph').text = etree.CDATA(para)
+            ## RSR01 2021-04-19 BEGIN Use markdown instead
+            # for para in self.full:
+            #     etree.SubElement(full, 'paragraph').text = etree.CDATA(para)
+            etree.SubElement(full, 'paragraph').text = etree.CDATA(markdown.markdown('\n'.join(self.full), extensions=['extra']))
+            ## RSR01 2021-04-19 BEGIN Use markdown instead
         if version and self.version:
             etree.SubElement(node, 'version').text = etree.CDATA(self.version)
         if authors and self.authors:
@@ -806,20 +819,33 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
                     # spaces
                     for i, line in enumerate(comment_buffer):
                         line = line.strip().lstrip('*').lstrip()
-                        comment_buffer[i] = line
+                        ## RSR01 2021-04-19 BEGIN Use markdown instead
+                        #comment_buffer[i] = line
+                        comment_buffer[i] = _re_star.sub('', line, 1)
+                        ## RSR01 2021-04-19 BEGIN Use markdown instead
                         if line and line[0] == '@' and not firstAt:
                             firstAt = i
                     if not firstAt:
                         firstAt = len(comment_buffer)
                     all_text = comment_buffer[:firstAt]
-                    full = list(AppClassDocVisitor._split_paragraphs(all_text))
-                    if full:
-                        # Partition after '. ' instead of '.' to avoid
-                        # improper splitting of, e.g., "Record.Field"
-                        summary = f'{full[0].partition(". ")[0]}.'
+                    ## RSR01 2021-04-19 BEGIN Use markdown instead
+                    # full = list(AppClassDocVisitor._split_paragraphs(all_text))
+                    # if full:
+                    #     # Partition after '. ' instead of '.' to avoid
+                    #     # improper splitting of, e.g., "Record.Field"
+                    #     summary = f'{full[0].partition(". ")[0]}.'
+                    # else:
+                    #     summary = None
+                    # descr = Description(summary, full=full)
+                    if all_text:
+                        summary = all_text[0].partition('. ')[0] + '.'
                     else:
                         summary = None
-                    descr = Description(summary, full=full)
+                    descr = Description(summary, full=all_text)
+                    ## RSR01 2021-04-19 EINDE Use markdown instead
+                    ## RSR01 2021-04-19 BEGIN Fix one-liners
+                    summary = summary.replace('..', '.')
+                    ## RSR01 2021-04-19 EINDE Fix one-liners
                     tags = None
                     if firstAt < len(comment_buffer):
                         tags = comment_buffer[firstAt:]
@@ -1190,6 +1216,40 @@ def _process_input(args):
             _logger.warning(f'"{arg}" not found, skipping.')
 
 
+## RSR01 2021-04-20 BEGIN Save and reuse previous list
+def _update_class_list(classes, file_path):
+    """Save classes list to add to later."""
+    if os.path.exists(file_path):
+        name_list = [f'{c.name}:{c.package_name}' for c in classes]
+        with open(file_path, 'r', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if f"{row['name']}:{row['package']}" in name_list:
+                    continue
+                name_list.append(f"{row['name']}:{row['package']}")
+                package = row['package'].split(':')
+                verb = None if row['verb'] == '' else row['verb']
+                superclass = None if row['superclass'] == '' else row['superclass']
+                classes.append(AppClass(row['name'], package, the_type=row['type'], verb=verb, superclass=superclass))
+        classes.sort(key=lambda c: f'{c.name}:{c.package_name}')
+    with open(file_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, ['name', 'package', 'type', 'verb', 'superclass'])
+        writer.writeheader()
+        for c in classes:
+            row = {}
+            row['name'] = c.name
+            row['package'] = c.package_name
+            row['type'] = c.type
+            if c.superclass:
+                row['verb'] = c.superclass.verb
+                row['superclass'] = c.superclass.fqcn
+            else:
+                row['verb'] = ''
+                row['superclass'] = ''
+            writer.writerow(row)
+## RSR01 2021-04-20 EINDE Save and reuse previous list
+
+
 def _write_package_index(packages, file_path):
     """Write the package index file."""
     with open(file_path, 'wb') as file:
@@ -1324,6 +1384,9 @@ def generate_appclassdoc(outputdir, include_private, do_deletes, files,
         pkg_idx_file = os.path.join(outputdir, 'packages.html')
         cls_idx_file_frame = os.path.join(outputdir, 'classes-frame.html')
         cls_idx_file_noframe = os.path.join(outputdir, 'classes-noframe.html')
+        ## RSR01 2021-04-20 BEGIN Save and reuse previous list
+        cls_idx_list_file = os.path.join(outputdir, 'classes-list.csv')
+        ## RSR01 2021-04-20 EINDE Save and reuse previous list
         if do_deletes:
             # Delete API directory and index files
             start_time = time.time()
@@ -1337,6 +1400,10 @@ def generate_appclassdoc(outputdir, include_private, do_deletes, files,
                 os.remove(cls_idx_file_frame)
             if os.path.exists(cls_idx_file_noframe):
                 os.remove(cls_idx_file_noframe)
+            ## RSR01 2021-04-20 BEGIN Save and reuse previous list
+            if os.path.exists(cls_idx_list_file):
+                os.remove(cls_idx_list_file)
+            ## RSR01 2021-04-20 EINDE Save and reuse previous list
             _print_verbose(f' Done in {(time.time() - start_time):.1f} s.')
         # Produce per-class files
         start_time = time.time()
@@ -1344,6 +1411,10 @@ def generate_appclassdoc(outputdir, include_private, do_deletes, files,
         for app_class in app_classes:
             _write_class_file_html(outputdir, app_class)
         _print_verbose(f' Done in {(time.time() - start_time):.1f} s.')
+        ## RSR01 2021-04-20 BEGIN Save and reuse previous list
+        # Load and save class list
+        _update_class_list(app_classes, cls_idx_list_file)
+        ## RSR01 2021-04-20 EINDE Save and reuse previous list
         # Produce indexes
         start_time = time.time()
         _print_verbose('Writing indexes...', end='', flush=True)

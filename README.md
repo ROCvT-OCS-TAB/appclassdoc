@@ -6,6 +6,13 @@
 
 This Python package will use the [PeopleCode parser](https://github.com/lbaca/PeopleCodeParser) to analyze PeopleSoft Application Class source code and generate an HTML API documentation site similar to Java's Javadoc.
 
+### Changes
+
+This package was altered by @ROCvT-RSR01:
+
+1. Accepts markdown in comments.
+2. If you use -n to keep existing classes, they also show in the navigation. With -n, you add classes to the docs.
+
 ## Prerequisites
 
 ### Application Class Source Code
