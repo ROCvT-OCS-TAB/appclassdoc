@@ -39,7 +39,10 @@ import csv
 # GLOBAL VARIABLES
 _verbose = False
 _logger = logging.getLogger('appclassdoc')
-_re_api = re.compile(r'/\*\*+\s*(.+)\s*\*+/', flags=re.DOTALL)
+## RSR01 2021-04-29 BEGIN Support <**> comments
+#_re_api = re.compile(r'/\*\*+\s*(.+)\s*\*+/', flags=re.DOTALL)
+_re_api = re.compile(r'[/<]\*\*+\s*(.+)\s*\*+[/>]', flags=re.DOTALL)
+## RSR01 2021-04-29 BEGIN Support <**> comments
 ## RSR01 2021-04-19 BEGIN Use markdown instead
 _re_star = re.compile(r'^\s*\*+')
 ## RSR01 2021-04-19 EINDE Use markdown instead
@@ -797,12 +800,18 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
     def _find_api_comment(self, start):
         """Find API comments immediately preceding a given position."""
         descr = None
+        ## RSR01 2021-04-29 BEGIN Support <**> comments
+        # api_comments = self.stream.getHiddenTokensToLeft(
+        #     start.tokenIndex, channel=PeopleCodeLexer.API_COMMENTS)
         api_comments = self.stream.getHiddenTokensToLeft(
-            start.tokenIndex, channel=PeopleCodeLexer.API_COMMENTS)
+            start.tokenIndex, channel=PeopleCodeLexer.COMMENTS)
+        ## RSR01 2021-04-29 BEGIN Support <**> comments
         if api_comments:
+            print(api_comments[-1].text)
             # Ensure only the last of consecutive API comments is kept.
             # Start by removing opening and closing markers.
             match = _re_api.fullmatch(api_comments[-1].text)
+            print(match)
             if match:
                 comment_buffer = [line.strip('\r')
                                   for line in match.group(1).split(sep='\n')]
