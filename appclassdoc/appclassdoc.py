@@ -803,15 +803,23 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
         ## RSR01 2021-04-29 BEGIN Support <**> comments
         # api_comments = self.stream.getHiddenTokensToLeft(
         #     start.tokenIndex, channel=PeopleCodeLexer.API_COMMENTS)
-        api_comments = self.stream.getHiddenTokensToLeft(
+        api_comments = []
+        comments = self.stream.getHiddenTokensToLeft(
             start.tokenIndex, channel=PeopleCodeLexer.COMMENTS)
-        ## RSR01 2021-04-29 BEGIN Support <**> comments
+        if comments:
+            api_comments.append(comments[-1])
+        comments = self.stream.getHiddenTokensToLeft(
+            start.tokenIndex, channel=PeopleCodeLexer.API_COMMENTS)
+        if comments:
+            api_comments.append(comments[-1])
+        ## RSR01 2021-04-29 EINDE Support <**> comments
         if api_comments:
-            print(api_comments[-1].text)
+            ## RSR01 2021-04-29 BEGIN Support <**> comments
+            api_comments.sort(key=lambda c: c.tokenIndex)
+            ## RSR01 2021-04-29 EINDE Support <**> comments
             # Ensure only the last of consecutive API comments is kept.
             # Start by removing opening and closing markers.
             match = _re_api.fullmatch(api_comments[-1].text)
-            print(match)
             if match:
                 comment_buffer = [line.strip('\r')
                                   for line in match.group(1).split(sep='\n')]
