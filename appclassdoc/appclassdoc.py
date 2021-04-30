@@ -28,9 +28,9 @@ from peoplecodeparser.PeopleCodeParserVisitor import PeopleCodeParserVisitor
 
 from pkg_resources import resource_filename, resource_stream
 
-## RSR01 2021-04-19 BEGIN Use markdown instead
+## RSR01 2021-04-19 BEGIN Support markdown
 import markdown
-## RSR01 2021-04-19 EINDE Use markdown instead
+## RSR01 2021-04-19 EINDE Support markdown
 ## RSR01 2021-04-20 BEGIN Save and reuse previous list
 import csv
 ## RSR01 2021-04-20 EINDE Save and reuse previous list
@@ -39,13 +39,12 @@ import csv
 # GLOBAL VARIABLES
 _verbose = False
 _logger = logging.getLogger('appclassdoc')
-## RSR01 2021-04-29 BEGIN Support <**> comments
+## RSR01 2021-04-30 BEGIN Support markdown
 #_re_api = re.compile(r'/\*\*+\s*(.+)\s*\*+/', flags=re.DOTALL)
-_re_api = re.compile(r'[/<]\*\*+\s*(.+)\s*\*+[/>]', flags=re.DOTALL)
-## RSR01 2021-04-29 BEGIN Support <**> comments
-## RSR01 2021-04-19 BEGIN Use markdown instead
-_re_star = re.compile(r'^\s*\*+')
-## RSR01 2021-04-19 EINDE Use markdown instead
+_prefix_regex = re.compile(r'^\s*(?:\*+\s*)?')
+_first_line_regex = re.compile(r'^\s*[/<]\*\*+\s*')
+_last_line_regex = re.compile(r'\s*\*+[/>]\s*$')
+## RSR01 2021-04-30 EINDE Support markdown
 
 
 # MODEL
@@ -516,11 +515,11 @@ class Description:
             etree.SubElement(node, 'summary').text = etree.CDATA(self.summary)
         if self.full:
             full = etree.SubElement(node, 'full')
-            ## RSR01 2021-04-19 BEGIN Use markdown instead
+            ## RSR01 2021-04-19 BEGIN Support markdown
             # for para in self.full:
             #     etree.SubElement(full, 'paragraph').text = etree.CDATA(para)
             etree.SubElement(full, 'paragraph').text = etree.CDATA(markdown.markdown('\n'.join(self.full), extensions=['extra']))
-            ## RSR01 2021-04-19 BEGIN Use markdown instead
+            ## RSR01 2021-04-19 BEGIN Support markdown
         if version and self.version:
             etree.SubElement(node, 'version').text = etree.CDATA(self.version)
         if authors and self.authors:
@@ -817,35 +816,65 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
             ## RSR01 2021-04-29 BEGIN Support <**> comments
             api_comments.sort(key=lambda c: c.tokenIndex)
             ## RSR01 2021-04-29 EINDE Support <**> comments
+            ## RSR01 2021-04-30 BEGIN Support markdown
             # Ensure only the last of consecutive API comments is kept.
             # Start by removing opening and closing markers.
-            match = _re_api.fullmatch(api_comments[-1].text)
-            if match:
-                comment_buffer = [line.strip('\r')
-                                  for line in match.group(1).split(sep='\n')]
-                # Get rid of leading and trailing empty lines
-                while (len(comment_buffer) > 0
-                        and not comment_buffer[-1].strip()):
-                    del comment_buffer[-1]
-                while (len(comment_buffer) > 0
-                        and not comment_buffer[0].strip()):
-                    del comment_buffer[0]
+            # match = _re_api.fullmatch(api_comments[-1].text)
+            # if match:
+            #     comment_buffer = [line.strip('\r')
+            #                       for line in match.group(1).split(sep='\n')]
+            #     # Get rid of leading and trailing empty lines
+            #     while (len(comment_buffer) > 0
+            #             and not comment_buffer[-1].strip()):
+            #         del comment_buffer[-1]
+            #     while (len(comment_buffer) > 0
+            #             and not comment_buffer[0].strip()):
+            #         del comment_buffer[0]
+            comment_buffer = []
+            lines = api_comments[-1].text.splitlines()
+            if len(lines) == 1:
+                # one line
+                line = lines[0]
+                line = _first_line_regex.sub('', line, 1)
+                line = _last_line_regex.sub('', line, 1)
+                comment_buffer.append(line)
+            else:
+                # first line
+                line = lines[0]
+                line = _first_line_regex.sub('', line, 1)
+                if line:
+                    comment_buffer.append(line)
+                # determine line prefix (space and possibly stars and more space) from the first non-empty line
+                for line in lines[1:]:
+                    if line.strip():
+                        prefix = _prefix_regex.match(line).group(0)
+                        break
+                for line in lines[1:-1]:
+                    line = line.removeprefix(prefix)
+                    comment_buffer.append(line)
+                # last line
+                line = lines[-1]
+                line = _last_line_regex.sub('', line, 1)
+                if line:
+                    comment_buffer.append(line)
+            print(comment_buffer)
+            if True: # preserve original indent
+            ## RSR01 2021-04-30 EINDE Support markdown
                 if comment_buffer:
                     firstAt = None
                     # Remove leading stars and spaces, and trailing
                     # spaces
                     for i, line in enumerate(comment_buffer):
-                        line = line.strip().lstrip('*').lstrip()
-                        ## RSR01 2021-04-19 BEGIN Use markdown instead
-                        #comment_buffer[i] = line
-                        comment_buffer[i] = _re_star.sub('', line, 1)
-                        ## RSR01 2021-04-19 BEGIN Use markdown instead
+                        ## RSR01 2021-04-19 BEGIN Support markdown
+                        # line = line.strip().lstrip('*').lstrip()
+                        # comment_buffer[i] = line
+                        ## RSR01 2021-04-19 BEGIN Support markdown
                         if line and line[0] == '@' and not firstAt:
                             firstAt = i
                     if not firstAt:
                         firstAt = len(comment_buffer)
                     all_text = comment_buffer[:firstAt]
-                    ## RSR01 2021-04-19 BEGIN Use markdown instead
+                    ## RSR01 2021-04-19 BEGIN Support markdown
                     # full = list(AppClassDocVisitor._split_paragraphs(all_text))
                     # if full:
                     #     # Partition after '. ' instead of '.' to avoid
@@ -856,13 +885,11 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
                     # descr = Description(summary, full=full)
                     if all_text:
                         summary = all_text[0].partition('. ')[0] + '.'
+                        summary = summary.replace('..', '.')
                     else:
                         summary = None
                     descr = Description(summary, full=all_text)
-                    ## RSR01 2021-04-19 EINDE Use markdown instead
-                    ## RSR01 2021-04-19 BEGIN Fix one-liners
-                    summary = summary.replace('..', '.')
-                    ## RSR01 2021-04-19 EINDE Fix one-liners
+                    ## RSR01 2021-04-19 EINDE Support markdown
                     tags = None
                     if firstAt < len(comment_buffer):
                         tags = comment_buffer[firstAt:]

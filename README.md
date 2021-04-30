@@ -14,6 +14,12 @@ This package was altered by @ROCvT-RSR01:
 2. If you use -n to keep existing classes, they also show in the navigation. With -n, you add classes to the docs.
 3. Support <** *> PeopleCode comments
 
+To replace the PyPI install, use:
+
+```
+pip install --force-reinstall .
+```
+
 ## Prerequisites
 
 ### Application Class Source Code
