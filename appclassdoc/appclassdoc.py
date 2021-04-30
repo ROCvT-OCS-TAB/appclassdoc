@@ -857,7 +857,6 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
                 line = _last_line_regex.sub('', line, 1)
                 if line:
                     comment_buffer.append(line)
-            print(comment_buffer)
             if True: # preserve original indent
             ## RSR01 2021-04-30 EINDE Support markdown
                 if comment_buffer:
