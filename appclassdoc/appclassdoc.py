@@ -832,31 +832,33 @@ class AppClassDocVisitor(PeopleCodeParserVisitor):
             #         del comment_buffer[0]
             comment_buffer = []
             lines = api_comments[-1].text.splitlines()
-            if len(lines) == 1:
-                # one line
-                line = lines[0]
-                line = _first_line_regex.sub('', line, 1)
-                line = _last_line_regex.sub('', line, 1)
-                comment_buffer.append(line)
-            else:
-                # first line
-                line = lines[0]
-                line = _first_line_regex.sub('', line, 1)
-                if line:
+            # first line must be a match for /** or <**
+            if _first_line_regex.match(lines[0]):
+                if len(lines) == 1:
+                    # one line
+                    line = lines[0]
+                    line = _first_line_regex.sub('', line, 1)
+                    line = _last_line_regex.sub('', line, 1)
                     comment_buffer.append(line)
-                # determine line prefix (space and possibly stars and more space) from the first non-empty line
-                for line in lines[1:]:
-                    if line.strip():
-                        prefix = _prefix_regex.match(line).group(0)
-                        break
-                for line in lines[1:-1]:
-                    line = line.removeprefix(prefix)
-                    comment_buffer.append(line)
-                # last line
-                line = lines[-1]
-                line = _last_line_regex.sub('', line, 1)
-                if line:
-                    comment_buffer.append(line)
+                else:
+                    # first line
+                    line = lines[0]
+                    line = _first_line_regex.sub('', line, 1)
+                    if line:
+                        comment_buffer.append(line)
+                    # determine line prefix (space and possibly stars and more space) from the first non-empty line
+                    for line in lines[1:]:
+                        if line.strip():
+                            prefix = _prefix_regex.match(line).group(0)
+                            break
+                    for line in lines[1:-1]:
+                        line = line.removeprefix(prefix)
+                        comment_buffer.append(line)
+                    # last line
+                    line = lines[-1]
+                    line = _last_line_regex.sub('', line, 1)
+                    if line:
+                        comment_buffer.append(line)
             if True: # preserve original indent
             ## RSR01 2021-04-30 EINDE Support markdown
                 if comment_buffer:
